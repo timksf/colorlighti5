@@ -1,0 +1,1 @@
+Playing with bluespec/verilog and the ECP5 on a colorlighti5 board
