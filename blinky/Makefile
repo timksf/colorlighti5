@@ -1,11 +1,14 @@
-TARGET=Top
-TOP=Top
+TARGET=Blinky
+TOP=Blinky
 MOD_NAME=mk$(TOP)
+TEST_NAME=Testbench
+TEST_MOD=mk$(TEST_NAME)
 
 COMPILER=bsc
 
 BUILD=build
 VERILOG=$(BUILD)/verilog
+SIM=$(BUILD)/sim
 
 TRELLIS=/usr/local/share/trellis
 
@@ -14,6 +17,7 @@ all: ${TARGET}.bit
 prep_dirs:
 	@mkdir -p $(BUILD)
 	@mkdir -p $(VERILOG)
+	@mkdir -p $(SIM)
 
 compile: $(TOP).bsv prep_dirs
 	$(COMPILER) -bdir $(BUILD) -sim -g $(MOD_NAME) -u $<
@@ -38,9 +42,17 @@ $(TARGET).bit: $(TARGET)_out.config
 
 ${TARGET}.svf : ${TARGET}.bit
 
+compile_test: $(TEST_NAME).bsv prep_dirs
+	$(COMPILER) -bdir $(BUILD) -sim -g $(TEST_MOD) -u -D BSIM $<
+
+sim: compile_test prep_dirs
+	$(COMPILER) -bdir $(BUILD) -simdir $(SIM) -sim -e $(TEST_MOD) -D BSIM -o $(TEST_MOD)Sim 
+
+vcd: sim
+	./$(TEST_MOD)Sim -V $(SIM)/dump.vcd
 
 # prog: $(TARGET).bit
 # 	openFPGALoader -b colorlight_i5 $(TARGET).bit
 
 clean: 
-	rm -rf $(BUILD) *.svf *.bit *.config *.ys *.json
+	rm -rf $(BUILD) *.svf *.bit *.config *.ys *.json $(TEST_MOD)Sim *.so
