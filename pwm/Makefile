@@ -1,7 +1,7 @@
 
 # filenames
-TARGET_NAME=Blinky
-TOP=Blinky
+TARGET_NAME=PWMGen
+TOP=PWMGen
 MOD_NAME=mk$(TOP)
 TEST_NAME=Testbench
 TEST_MOD=mk$(TEST_NAME)
@@ -36,13 +36,8 @@ compile: $(TOP).bsv prep_dirs
 gen_verilog: $(TOP).bsv	prep_dirs
 	$(COMPILER) -bdir $(BUILD) -p $(BLUEIMPORT) -remove-dollar -u -verilog -vdir $(VERILOG) -g $(MOD_NAME) $<
 
-# find_verilog : gen_verilog
-# 	@echo $(shell find $(VERILOG) -type f -name "*.v")
-
 $(TARGET).json: gen_verilog 
 	yosys -p "read_verilog $(VERILOG)/$(MOD_NAME).v; synth_ecp5 -json $@" $(shell find $(VERILOG) -type f -name "*.v")
-
-# $(shell find $(VERILOG) -type f -name "*.v")
 
 $(TARGET)_out.config: $(TARGET).json
 	nextpnr-ecp5 --25k --package CABGA381 --speed 6 --json $< --textcfg $@ --lpf $(TARGET_NAME).lpf --freq 65
@@ -62,7 +57,7 @@ vcd: sim
 	./$(TEST_MOD)Sim -V $(SIM)/dump.vcd
 
 # prog: $(TARGET).bit
-# 	openFPGALoader -b colorlight_i5 $(TARGET).bit
+# 	openFPGALoader -c digilent_hs2 $(TARGET).bit
 
 clean: 
 	rm -rf $(BUILD) *.svf *.bit *.config *.ys *.json $(TEST_MOD)Sim *.so

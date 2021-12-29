@@ -1,19 +1,13 @@
 package Blinky;
 
+import Defs :: *;
+
 interface Blink_ifc;
     (* always_ready *)
     method Bool led_out();
 endinterface
 
-`ifdef BSIM
-    typedef 100000 CLK_FREQ; //clock frequency in Hz for simulation
-    typedef 100 INTERVAL; //Interval in micro seconds for simulation
-`else
-    typedef 25000000 CLK_FREQ; //clock frequency in Hz for application
-    typedef 100000 INTERVAL; //Interval in micro seconds for application
-`endif
-
-typedef TDiv#(TMul#(CLK_FREQ, INTERVAL), 1000000) TIMER_TOP; //timer counts up each cycle, needs top value to toggle led on 
+typedef TDiv#(TMul#(MCLK, BLINK_INTERVAL), 1000000) TIMER_TOP; //timer counts up each cycle, needs top value to toggle led on 
 
 typedef TLog#(TIMER_TOP) TIMER_WIDTH;
 
