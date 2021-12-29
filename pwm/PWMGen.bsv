@@ -9,19 +9,19 @@ interface PWMGen_ifc;
     method Bool pwm_out1();
 endinterface
 
-typedef TDiv#(TMul#(MCLK, PWM_INTERVAL), 1000000) TIMER_TOP; 
-typedef TLog#(TIMER_TOP) TIMER_WIDTH;
+typedef TDiv#(TMul#(MCLK, PWM_INTERVAL), 1000000) PWM_TIMER_TOP; 
+typedef TLog#(PWM_TIMER_TOP) PWM_TIMER_WIDTH;
 
 //Generates PWM signal with output on two different ports and modifiable frequency
 (* synthesize *)
 module mkPWMGen(PWMGen_ifc);
 
-    Reg#(UInt#(TIMER_WIDTH)) _timer <- mkReg(0);
-    Reg#(UInt#(TIMER_WIDTH)) _duty <- mkReg(fromInteger(valueof(TDiv#(TIMER_TOP, 2))));
+    Reg#(UInt#(PWM_TIMER_WIDTH)) _timer <- mkReg(0);
+    Reg#(UInt#(PWM_TIMER_WIDTH)) _duty <- mkReg(fromInteger(valueof(TDiv#(PWM_TIMER_TOP, 2))));
     Reg#(Bool) _out <- mkReg(True);
 
     rule pwm;
-        if(_timer == fromInteger(valueof(TIMER_TOP) - 1)) begin
+        if(_timer == fromInteger(valueof(PWM_TIMER_TOP) - 1)) begin
             _timer <= 0;
             _out <= True;
         end
