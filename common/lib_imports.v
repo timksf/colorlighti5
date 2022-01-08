@@ -1,0 +1,5 @@
+`include "/opt/bluespec/lib/Verilog/ClockGen.v"
+`include "/opt/bluespec/lib/Verilog/ClockDiv.v"
+`include "/opt/bluespec/lib/Verilog/SyncFIFO.v"
+`include "/opt/bluespec/lib/Verilog/SyncReset0.v"
+`include "/opt/bluespec/lib/Verilog/SyncBit.v"
