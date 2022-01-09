@@ -32,8 +32,9 @@ module mkUART_tx8n1#(Clock sClk, Reset sRst)(UART_tx_ifc);
 
     rule send_bit (!stop);
         let pkt = tx_fifo.first;
-        //TODO add capability to switch between LSB and MSB first
-        let cbit = pkt[fromInteger(valueof(UART_WIDTH) - 1) - idx];
+        //TODO Maybe add capability to switch between LSB and MSB first
+        // let cbit = pkt[fromInteger(valueof(UART_WIDTH) - 1) - idx]; //MSB first
+        let cbit = pkt[idx]; //LSB first
         if(idx == 0 && idle) begin
             //send start bit
             out <= tagged LOW;

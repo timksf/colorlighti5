@@ -8,6 +8,7 @@ import Clocks :: *;
 import Defs :: *;
 import StatusLED :: *;
 import UART_TX :: *;
+import UART_RX :: *;
 
 interface UART_ifc;
     (* always_ready *)
@@ -28,7 +29,7 @@ function Integer divisorFromBR(Baudrate br);
             BAUD_230400:    return valueof(TDiv#( MCLK, 230400 ));
         endcase;
     `else
-    Integer clockDivisor = 2;
+    Integer clockDivisor = 8;
     `endif
     return clockDivisor;
 endfunction
@@ -61,8 +62,8 @@ module mkUART#(parameter Baudrate br)(UART_ifc);
     //rx module has a higher clock rate than TX module because it needs to sample the input
     Integer clockDivisorRX = clockDivisor / valueOf(UARTRX_SAMPLE_SIZE);
     ClockDividerIfc cdivRX <- mkClockDivider(clockDivisorRX);
-    Reset rstSync <- mkAsyncResetFromCR(0, cdivRX.slowClock);
-    UART_rx_ifc my_rx <- mkUART_rx8n1(clocked_by cdivRX.slowClock, reset_by rstSy, currClk, currRst);
+    Reset rstSyncRX <- mkAsyncResetFromCR(0, cdivRX.slowClock);
+    UART_rx_ifc my_rx <- mkUART_rx8n1(clocked_by cdivRX.slowClock, reset_by rstSyncRX, currClk, currRst);
 
     //Clock for status LED
     ClockDividerIfc cdivLed <- mkClockDivider(fromInteger(valueof(MCLK)));

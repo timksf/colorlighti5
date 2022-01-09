@@ -29,7 +29,11 @@ typedef enum { BAUD_2400, BAUD_4800, BAUD_9600, BAUD_57600, BAUD_115200, BAUD_23
 typedef 8 UART_WIDTH;
 typedef Bit#(UART_WIDTH) UART_pkt;
 typedef TLog#(UART_WIDTH) UART_INDEX_WIDTH;
+`ifndef BSIM
 typedef 16 UARTRX_SAMPLE_SIZE;
+`else
+typedef 4 UARTRX_SAMPLE_SIZE;
+`endif
 
 
 
