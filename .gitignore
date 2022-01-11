@@ -6,3 +6,4 @@ Blinky.json
 *.so
 *Sim
 util/
+*.gtkw
