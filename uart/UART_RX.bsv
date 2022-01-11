@@ -5,6 +5,8 @@ import GetPut :: *;
 
 import Defs :: *;
 
+import SyncBitExtensions :: *;
+
 interface UART_rx_ifc;
     method Action in_pin(PinState s);
     interface Get#(UART_pkt) data;
@@ -23,18 +25,18 @@ module mkUART_rx8n1#(Clock dClk, Reset sRst)(UART_rx_ifc);
     Integer uartEndIdx = valueof(TSub#(UART_WIDTH, 1));
 
     SyncFIFOIfc#(UART_pkt) rx_fifo <- mkSyncFIFOFromCC(8, dClk);
-    Reg#(PinState) in <- mkReg(tagged HIGH); //pin HIGH in IDLE state 
+    Reg#(PinState) in <- mkSyncBitInitWrapperToCC(tagged HIGH, dClk, sRst);
+
     Reg#(UartRxState) state <- mkReg(UartRX_Idle);
     Reg#(UInt#(TLog#(UARTRX_SAMPLE_SIZE))) sample_cnt <- mkReg(0);
 
     Reg#(UInt#(UART_INDEX_WIDTH)) idx <- mkReg('b0);
     Reg#(UART_pkt) recv_pkt <- mkReg('b0);
 
-    SyncBitIfc#(PinState) in_sync <- mkSyncBitToCC(dClk, sRst);
-
     rule idle (state == UartRX_Idle);
         if(in matches tagged LOW) begin
             state <= UartRX_SampleStart;
+            sample_cnt <= 1;
         end
     endrule
 
@@ -80,12 +82,7 @@ module mkUART_rx8n1#(Clock dClk, Reset sRst)(UART_rx_ifc);
         end
     endrule
 
-
-    rule sync_in;
-        in <= in_sync.read();
-    endrule
-
-    method in_pin(s)    = in_sync.send(s);
+    method in_pin(s)    = in._write(s);
 
     interface data      = toGet(rx_fifo);
 

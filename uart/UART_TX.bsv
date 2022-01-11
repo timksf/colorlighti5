@@ -5,6 +5,8 @@ import GetPut :: *;
 
 import Defs :: *;
 
+import SyncBitExtensions :: *;
+
 interface UART_tx_ifc;
     method PinState out_pin();
     interface Put#(UART_pkt) data;
@@ -17,13 +19,16 @@ endinterface
 module mkUART_tx8n1#(Clock sClk, Reset sRst)(UART_tx_ifc);
     
     SyncFIFOIfc#(UART_pkt) tx_fifo <- mkSyncFIFOToCC(8, sClk, sRst);
-    Reg#(PinState) out <- mkReg(tagged HIGH); //pin HIGH in IDLE state 
-    SyncBitIfc#(PinState) out_sync <- mkSyncBitFromCC(sClk);
+    Reg#(PinState) out <- mkSyncBitInitWrapperFromCC(tagged HIGH, sClk); //output pin HIGH in idle state
+
     Reg#(UInt#(UART_INDEX_WIDTH)) idx <- mkReg(0);
     Reg#(Bool) idle <- mkReg(True);
-    Reg#(Bool) stop <- mkReg(False);
+    Reg#(Bool) stop <- mkReg(True); //start with output pin pulled HIGH
+
+    Reg#(Bool) testReg <- mkReg(False);
 
     rule stopr (stop);
+        testReg <= True;
         //send one stop bit
         out <= tagged HIGH;
         idle <= True;
@@ -53,11 +58,7 @@ module mkUART_tx8n1#(Clock sClk, Reset sRst)(UART_tx_ifc);
         end
     endrule
 
-    rule sync_out;
-        out_sync.send(out);
-    endrule
-
-    method out_pin  = out_sync.read();
+    method out_pin  = out._read;
 
     interface data  = toPut(tx_fifo);
 

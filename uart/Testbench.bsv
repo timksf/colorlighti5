@@ -39,13 +39,19 @@ module mkTestbench();
     Reg#(UInt#(8)) send_byte <- mkReg(clocked_by clk, reset_by rst, fromInteger(ascii_0));
 
     Reg#(Bool) start_rx <- mkReg(False);
+    Reg#(UInt#(64)) cnt <- mkReg(0);
 
-    rule fwd;
-        my_rx.in_pin(my_tx.out_pin);
+    rule cycle;
+        cnt <= cnt + 1;
     endrule
 
     Stmt s = seq
         par
+        while(True)
+            action 
+                let x = my_tx.out_pin(); 
+                my_rx.in_pin(x);
+            endaction
         seq
         $display("rx divisor: %d", clockDivisorRX);
         $display("Testing UART modules");
@@ -53,7 +59,7 @@ module mkTestbench();
         //     my_tx.data.put(pack(send_byte));
         //     delay(100);
         // endseq
-        my_tx.data.put(pack(send_byte)); 
+        my_tx.data.put(pack(8'hAA)); 
         delay(100);
         $display("Done... ");
         delay(100);
