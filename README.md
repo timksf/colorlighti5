@@ -23,6 +23,8 @@ Uses Bluespec's built-in clock domain crossing functionalities. <br>
 FIFO input to TX module, FIFO output from RX module. <br>
 RX module has customizable sampling rate.
 ![yo](doc/uart1.png)
+### Pulling from the RX buffer into a recv register:
+![yo](doc/uart2.png)
 ### TODO:
 1. further simulations
 2. HW testing
