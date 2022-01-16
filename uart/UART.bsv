@@ -13,6 +13,8 @@ import UART_RX :: *;
 interface UART_ifc;
     (* always_ready *)
     method PinState tx();
+    (* always_ready, always_enabled *)
+    method Action rx(PinState s);
     (* always_ready *)
     method PinState led();
 endinterface
@@ -34,8 +36,11 @@ function Integer divisorFromBR(Baudrate br);
     return clockDivisor;
 endfunction
 
+/*
+    Simple UART mirror
+*/
 (* synthesize *)
-module mkUART#(parameter Baudrate br)(UART_ifc);
+module mkUART(UART_ifc);
 
     Integer ascii_0 = 48;
     Integer ascii_9 = 57;
@@ -66,23 +71,29 @@ module mkUART#(parameter Baudrate br)(UART_ifc);
     UART_rx_ifc my_rx <- mkUART_rx8n1(clocked_by cdivRX.slowClock, reset_by rstSyncRX, currClk, currRst);
 
     //Clock for status LED
-    ClockDividerIfc cdivLed <- mkClockDivider(fromInteger(valueof(MCLK)));
+    ClockDividerIfc cdivLed <- mkClockDivider(fromInteger(valueof(MCLK) / 2));
     Reset rstSyncLed <- mkAsyncResetFromCR(0, cdivLed.slowClock);
     StatusLEDIfc s_led <- mkStatusLED(clocked_by cdivLed.slowClock, reset_by rstSyncLed, currClk);
 
-    rule incr;    
-        if(send_byte == fromInteger(ascii_9))
-            send_byte <= fromInteger(ascii_0);
-        else 
-            send_byte <= send_byte + 1;
+    // rule incr;    
+    //     if(send_byte == fromInteger(ascii_9))
+    //         send_byte <= fromInteger(ascii_0);
+    //     else 
+    //         send_byte <= send_byte + 1;
+    // endrule
+
+    rule mirror;
+        let recv <- my_rx.data.get();
+        my_tx.data.put(recv);
     endrule
 
-    rule send; //fill fifo 
-        my_tx.data.put('d48);
-    endrule
+    // rule send; //fill fifo 
+    //     my_tx.data.put('h41);
+    // endrule
 
-    method tx = my_tx.out_pin;
-    method led = s_led.led_out;
+    method rx(s)    = my_rx.in_pin(s);
+    method tx       = my_tx.out_pin;
+    method led      = s_led.led_out;
 
 endmodule
 

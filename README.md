@@ -25,6 +25,8 @@ RX module has customizable sampling rate.
 ![yo](doc/uart1.png)
 ### Pulling from the RX buffer into a recv register:
 ![yo](doc/uart2.PNG)
+### UART Mirror:
+![yo](doc/uart3.PNG)
 ### TODO:
 1. further simulations
 2. HW testing

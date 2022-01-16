@@ -3,7 +3,7 @@
 TARGET_NAME=UART
 TOP=UART
 MOD_NAME=mk$(TOP)
-TEST_NAME=Testbench
+TEST_NAME=TestbenchUARTMirror
 TEST_MOD=mk$(TEST_NAME)
 
 # directories
