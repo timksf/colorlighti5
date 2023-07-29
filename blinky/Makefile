@@ -7,17 +7,17 @@ TEST_NAME=Testbench
 TEST_MOD=mk$(TEST_NAME)
 
 # directories
+REPORTS=reports
 BUILD=build
 VERILOG=$(BUILD)/verilog
+VERILOG_TOP=$(VERILOG)/$(MOD_NAME).v
 SIM=$(BUILD)/sim
 
 TARGET=$(BUILD)/$(TARGET_NAME)
 
 COMMON=../common/
 
-BLUEROOT=$(shell bsc --help | grep "Bluespec directory: " | awk '{print $$3}')
-BLUELIB=$(BLUEROOT)/Libraries
-BLUEIMPORT=.:$(BLUELIB):$(COMMON)
+BLUEIMPORT=.:$(COMMON):+
 
 COMPILER=bsc
 TRELLIS=/usr/local/share/trellis
@@ -28,6 +28,7 @@ prep_dirs:
 	@mkdir -p $(BUILD)
 	@mkdir -p $(VERILOG)
 	@mkdir -p $(SIM)
+	@mkdir -p $(REPORTS)
 
 compile: $(TOP).bsv prep_dirs
 	$(COMPILER) -bdir $(BUILD) -p $(BLUEIMPORT) -sim -g $(MOD_NAME) -u $<
@@ -35,17 +36,22 @@ compile: $(TOP).bsv prep_dirs
 
 gen_verilog: $(TOP).bsv	prep_dirs
 	$(COMPILER) -bdir $(BUILD) -p $(BLUEIMPORT) -remove-dollar -u -verilog -vdir $(VERILOG) -g $(MOD_NAME) $<
-
-# find_verilog : gen_verilog
-# 	@echo $(shell find $(VERILOG) -type f -name "*.v")
+	@echo "\n\`include \"$(COMMON)lib_imports.v\"" >> $(VERILOG_TOP)	
 
 $(TARGET).json: gen_verilog 
-	yosys -p "read_verilog $(VERILOG)/$(MOD_NAME).v; synth_ecp5 -json $@" $(shell find $(VERILOG) -type f -name "*.v")
-
-# $(shell find $(VERILOG) -type f -name "*.v")
-
+	yosys -p "read_verilog $(VERILOG_TOP); tee -o $(REPORTS)/synthesis_report.txt synth_ecp5 -top $(MOD_NAME) -json $@" 
+	
 $(TARGET)_out.config: $(TARGET).json
-	nextpnr-ecp5 --25k --package CABGA381 --speed 6 --json $< --textcfg $@ --lpf $(TARGET_NAME).lpf --freq 65
+	nextpnr-ecp5 \
+		--25k \
+		--package CABGA381 \
+		--speed 6 \
+		--json $<\
+		--textcfg $@\
+		--lpf $(TARGET_NAME).lpf\
+		--freq 65 \
+		--report $(REPORTS)/pnr_report.json \
+		--log $(REPORTS)/pnr_log.txt
 
 $(TARGET).bit: $(TARGET)_out.config
 	ecppack --svf $(TARGET).svf $< $@
@@ -61,8 +67,5 @@ sim: compile_test prep_dirs
 vcd: sim
 	./$(TEST_MOD)Sim -V $(SIM)/dump.vcd
 
-# prog: $(TARGET).bit
-# 	openFPGALoader -b colorlight_i5 $(TARGET).bit
-
 clean: 
-	rm -rf $(BUILD) *.svf *.bit *.config *.ys *.json $(TEST_MOD)Sim *.so
+	rm -rf $(BUILD) *.svf *.bit *.config *.ys *.json $(TEST_MOD)Sim *.so $(REPORTS)
