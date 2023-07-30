@@ -10,6 +10,8 @@ Blinky with 100us between toggles.
 ## PWM
 Two PWM Generators with 50% and 30% duty cycle
 ![yo](doc/pwm.png)
+The PWM design as rendered with `netlistsvg` after generating the netlist with `yosys`:
+![PWMGen](https://github.com/timksf/colorlighti5/assets/33375734/1c91671a-f15c-461e-8a5e-4f20449b93f0)
 ### TODO:
 1. fix compareTop calculation
 2. use compile time duty cycle calculations
