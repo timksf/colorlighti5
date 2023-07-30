@@ -1,63 +1,77 @@
+###
+# DO NOT CHANGE
+###
+TOP_MODULE=mkPWMGen
+TESTBENCH_MODULE=mkTestbench
+IGNORE_MODULES=mkTestbench mkTestsMainTest
+MAIN_MODULE=PWMGen
+TESTBENCH_FILE=test/Testbench.bsv
+TEST_DIR=$(PWD)/test
 
-# filenames
-TARGET_NAME=PWMGen
-TOP=PWMGen
-MOD_NAME=mk$(TOP)
-TEST_NAME=Testbench
-TEST_MOD=mk$(TEST_NAME)
+# Initialize
+-include .bsv_tools
+ifndef BSV_TOOLS
+$(error BSV_TOOLS is not set (Check .bsv_tools or specify it through the command line))
+endif
+VIVADO_ADD_PARAMS := ''
+CONSTRAINT_FILES := ''
+EXTRA_BSV_LIBS:=
+EXTRA_LIBRARIES:=
+RUN_FLAGS:=
 
-# directories
-BUILD=build
-VERILOG=$(BUILD)/verilog
-SIM=$(BUILD)/sim
+PROJECT_NAME=PWMGen
 
-TARGET=$(BUILD)/$(TARGET_NAME)
+ifeq ($(RUN_TEST),)
+RUN_TEST=TestsMainTest
+endif
 
-COMMON=../common/
+# Default flags
+EXTRA_FLAGS=-D "RUN_TEST=$(RUN_TEST)" -D "TESTNAME=mk$(RUN_TEST)"
+EXTRA_FLAGS+=-show-schedule -keep-fires -D "BSV_TIMESCALE=1ns/1ps"
 
-BLUEROOT=$(shell bsc --help | grep "Bluespec directory: " | awk '{print $$3}')
-BLUELIB=$(BLUEROOT)/Libraries
-BLUEIMPORT=.:$(BLUELIB):$(COMMON)
+###
+# User configuration
+###
 
-COMPILER=bsc
-TRELLIS=/usr/local/share/trellis
+# Comment the following line if -O3 should be used during compilation
+# Keep uncommented for short running simulations
+CXX_NO_OPT := 1
 
-all: ${TARGET}.bit
+# Any additional files added during compilation
+# For instance for BDPI or Verilog/VHDL files for simulation
+# CPP_FILES += $(current_dir)/src/mem_sim.cpp
 
-prep_dirs:
-	@mkdir -p $(BUILD)
-	@mkdir -p $(VERILOG)
-	@mkdir -p $(SIM)
+# Custom defines added to compile steps
+# EXTRA_FLAGS+=-D "BENCHMARK=1"
+EXTRA_FLAGS+=-D "BSIM=1"
 
-compile: $(TOP).bsv prep_dirs
-	$(COMPILER) -bdir $(BUILD) -p $(BLUEIMPORT) -sim -g $(MOD_NAME) -u $<
-	$(CLEAR)
+# Flags added to simulator execution
+# RUN_FLAGS+=-V dump.vcd
 
-gen_verilog: $(TOP).bsv	prep_dirs
-	$(COMPILER) -bdir $(BUILD) -p $(BLUEIMPORT) -remove-dollar -u -verilog -vdir $(VERILOG) -g $(MOD_NAME) $<
+# Add additional parameters for IP-XACT generation. Passed directly to Vivado.
+# Any valid TCL during packaging is allowed
+# Typically used to fix automatic inference for e.g. clock assignments
+# VIVADO_ADD_PARAMS += 'ipx::associate_bus_interfaces -busif M_AXI -clock sconfig_axi_aclk [ipx::current_core]'
 
-$(TARGET).json: gen_verilog 
-	yosys -p "read_verilog $(VERILOG)/$(MOD_NAME).v; synth_ecp5 -json $@" $(shell find $(VERILOG) -type f -name "*.v")
+# Add custom constraint files, Syntax: Filename,Load Order
+# CONSTRAINT_FILES += "$(PWD)/constraints/custom.xdc,LATE"
 
-$(TARGET)_out.config: $(TARGET).json
-	nextpnr-ecp5 --25k --package CABGA381 --speed 6 --json $< --textcfg $@ --lpf $(TARGET_NAME).lpf --freq 65
+EXTRA_BSV_LIBS+=../common
 
-$(TARGET).bit: $(TARGET)_out.config
-	ecppack --svf $(TARGET).svf $< $@
+VERILOG_SIM:=iverilog
+SYNTH_TARGET:=
+PNR_OPTIONS:=--25k --package CABGA381 --speed 6 --freq 65
+CONSTRAINT_FILES:=PWMGen.lpf
+YOSYS_CUSTOM_COMMANDS:=prep -top mkPWMGen; write_json PWMGen.json
+RENDER_NETLIST:=PWMGen.svg
+RENDER_CONVERT:=pdf
 
-${TARGET}.svf : ${TARGET}.bit
+RUN_FLAGS+=+bscvcd
 
-compile_test: $(TEST_NAME).bsv prep_dirs
-	$(COMPILER) -p $(BLUEIMPORT) -bdir $(BUILD) -sim -g $(TEST_MOD) -u -D BSIM $<
+# Do not change: Load libraries such as BlueAXI or BlueLib
+ifneq ("$(wildcard $(PWD)/libraries/*/*.mk)", "")
+include $(PWD)/libraries/*/*.mk
+endif
 
-sim: compile_test prep_dirs
-	$(COMPILER) -bdir $(BUILD) -simdir $(SIM) -sim -e $(TEST_MOD) -D BSIM -o $(TEST_MOD)Sim 
-
-vcd: sim
-	./$(TEST_MOD)Sim -V $(SIM)/dump.vcd
-
-# prog: $(TARGET).bit
-# 	openFPGALoader -c digilent_hs2 $(TARGET).bit
-
-clean: 
-	rm -rf $(BUILD) *.svf *.bit *.config *.ys *.json $(TEST_MOD)Sim *.so
+# Do not change: Include base makefile
+include $(BSV_TOOLS)/scripts/rules.mk

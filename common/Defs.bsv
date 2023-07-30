@@ -1,18 +1,18 @@
 package Defs;
 
 `ifdef BSIM
-    typedef 100000 MCLK; //clock frequency in Hz for simulation
+    typedef 1000000 MCLK; //clock frequency in Hz for simulation
 
     //blinky
-    typedef 100 BLINK_INTERVAL; //Interval in micro seconds for simulation
+    typedef 10000 BLINK_INTERVAL; //Interval in micro seconds for simulation
 
     //pwm
-    typedef BLINK_INTERVAL PWM_INTERVAL;
+    typedef 10 PWM_INTERVAL;
 `else
     typedef 25000000 MCLK; //clock frequency in Hz for application
 
     //blinky
-    typedef 100000 BLINK_INTERVAL; //Interval in micro seconds for application
+    typedef 2000000 BLINK_INTERVAL; //Interval in micro seconds for application
 
     //pwm
     typedef 25000 PWM_FREQ; //PWM freq in Hz

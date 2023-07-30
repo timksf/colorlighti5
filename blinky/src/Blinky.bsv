@@ -1,19 +1,23 @@
 package Blinky;
 
-import Defs :: *;
+import Vector :: *;
 
-interface Blink_ifc;
+interface Blinky;
     (* always_ready *)
     method Bool led_out();
 endinterface
 
-typedef TDiv#(TMul#(MCLK, BLINK_INTERVAL), 1000000) TIMER_TOP; //timer counts up each cycle, needs top value to toggle led on 
+typedef 25000000 MCLK;
+typedef 250000 BLINK_INTERVAL;
 
+typedef TDiv#(TMul#(MCLK, BLINK_INTERVAL), 1000000) TIMER_TOP;
 typedef TLog#(TIMER_TOP) TIMER_WIDTH;
 
 // (* no_default_reset *)
 (* synthesize *)
-module mkBlinky(Blink_ifc);
+module mkBlinky(Blinky);
+
+    messageM("Counter width: " + integerToString(valueof(TIMER_WIDTH)));
 
     Reg#(UInt#(TIMER_WIDTH)) timer <- mkReg(0);
 
