@@ -3,11 +3,13 @@ package TestbenchUARTMirror;
 import StmtFSM :: *;
 import Clocks :: *;
 import GetPut :: *;
+import List :: *;
 
 import Defs :: *;
 import UART :: *;
 import UART_TX :: *;
 import UART_RX :: *;
+import FileIO :: *;
 
 module mkTestbenchUARTMirror();
     Clock _currClk <- exposeCurrentClock();
@@ -50,7 +52,12 @@ module mkTestbenchUARTMirror();
         my_rx.in_pin(dut.tx); //simulate output from TX pin of the UART module
     endrule
 
+    let splashText <- mkReadFileStringList("splashscreen.txt");
+    function String f(String x, String y) = x+"\n"+y;
+    String t = fold(f, splashText);
+
     Stmt s = seq
+        $display(t);
         par
         while(True)
             action
@@ -61,7 +68,9 @@ module mkTestbenchUARTMirror();
         seq 
             my_tx.data.put('b10111011); //feed data into the standalone TX module
             my_tx.data.put('b10000001); 
-            my_tx.data.put('b01010101); 
+            my_tx.data.put('b01010101);
+            my_tx.data.put('hAA);
+            my_tx.data.put(fromInteger(charToInteger("c")));
             delay(600); //wait to see results in waveform
             $finish;
         endseq

@@ -4,11 +4,13 @@ import FIFO :: *;
 import StmtFSM :: *;
 import GetPut :: *;
 import Clocks :: *;
+import List :: *;
 
 import Defs :: *;
 import StatusLED :: *;
 import UART_TX :: *;
 import UART_RX :: *;
+import FileIO :: *;
 
 interface UART_ifc;
     (* always_ready *)
@@ -38,6 +40,23 @@ function Integer divisorFromBR(Baudrate br);
     `endif
     return clockDivisor;
 endfunction
+
+module mkSendString#(String text, Put#(UART_pkt) d)(Stmt);
+
+    Reg#(UInt#(32)) rIndex <- mkRegU;
+    let chars = stringToCharList(text);
+
+    Stmt s = seq
+        rIndex <= 0;
+        while(rIndex < fromInteger(List::length(chars))) action
+            Bit#(8) x = fromInteger(charToInteger(chars[rIndex]));
+            d.put(unpack(x));
+            rIndex <= rIndex + 1;
+        endaction
+    endseq;
+
+    return s;
+endmodule
 
 /*
     Simple UART mirror
@@ -85,34 +104,29 @@ module mkUART(UART_ifc);
 
     Reg#(Maybe#(UART_pkt)) rRecv <- mkReg(tagged Invalid);
 
-    rule mirror_rx if (rRecv matches tagged Invalid);
+    let splashText <- mkReadFileStringList("splashscreen.txt");
+    function String f(String x, String y) = x+"\n"+y;
+    String t = fold(f, splashText) + "\n";
+
+    let splashScreenStmt <- mkSendString(t, my_tx.data);
+    let splashScreenFSM <- mkFSM(splashScreenStmt);
+
+    rule receive if (rRecv matches tagged Invalid &&& splashScreenFSM.done());
         let recv <- my_rx.data.get();
         rRecv <= tagged Valid recv;
     endrule
 
-    (* descending_urgency = "mirror_tx, rheartbeat" *)
-    rule mirror_tx if (rRecv matches tagged Valid .pkt);
-        my_tx.data.put(pkt);
+    rule process (rRecv matches tagged Valid .pkt);
+        if(pack(pkt) == fromInteger(charToInteger("c"))) begin
+            splashScreenFSM.start();
+        end
         rRecv <= tagged Invalid;
     endrule
 
-    rule rheartbeat;
-        if(rUARTHeartBeat >= fromInteger(heartbeat_top)) begin
-            rUARTHeartBeat <= 0;
-            my_tx.data.put(fromInteger(charToInteger("$")));
-        end else
-            rUARTHeartBeat <= rUARTHeartBeat + 1;
-    endrule 
-
-    // rule send; //fill fifo 
-    //     my_tx.data.put(pack(send_byte));
-
-    //     // send_byte <= (send_byte == 48) ? 49 : 48;
-    //     //dont put increase in separate rule bc of clock mismatch between this and tx module
-    //     if(send_byte >= fromInteger(ascii_9-1) || send_byte < fromInteger(ascii_0))
-    //         send_byte <= fromInteger(ascii_0);
-    //     else 
-    //         send_byte <= send_byte + 1;
+    // (* descending_urgency = "mirror_tx, rheartbeat" *)
+    // rule mirror_tx if (rRecv matches tagged Valid .pkt);
+    //     my_tx.data.put(pkt);
+    //     rRecv <= tagged Invalid;
     // endrule
 
     method rx(s)    = my_rx.in_pin(s);
@@ -120,13 +134,6 @@ module mkUART(UART_ifc);
     method led      = s_led.led_out;
     method PinState recv() = my_rx.input_bit;
     
-    // ;
-    //     if(rRecv matches tagged Invalid)
-    //         return LOW;
-    //     else
-    //         return HIGH;
-    // endmethod
-
     interface baud = cdiv.slowClock;
 
 endmodule
