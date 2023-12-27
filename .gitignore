@@ -8,3 +8,10 @@ Blinky.json
 util/
 *.gtkw
 */reports
+*.sched
+*.pdf
+*.log
+build/
+working
+*.kiss2
+*.dot

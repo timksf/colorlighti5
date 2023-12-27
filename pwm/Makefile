@@ -64,7 +64,7 @@ PNR_OPTIONS:=--25k --package CABGA381 --speed 6 --freq 65
 CONSTRAINT_FILES:=PWMGen.lpf
 YOSYS_CUSTOM_COMMANDS:=prep -top mkPWMGen; write_json PWMGen.json
 RENDER_NETLIST:=PWMGen.svg
-RENDER_CONVERT:=pdf
+RENDER_CONVERT:=png
 
 RUN_FLAGS+=+bscvcd
 

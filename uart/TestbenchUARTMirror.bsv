@@ -26,14 +26,14 @@ module mkTestbenchUARTMirror();
     ClockDividerIfc cdiv <- mkClockDivider(clocked_by clk, reset_by rst, clockDivisor);
     Reset rstSync <- mkAsyncReset(0, rst, cdiv.slowClock);
 
-    UART_tx_ifc my_tx <- mkUART_tx8n1(clocked_by cdiv.slowClock, reset_by rstSync, clk, rst);
+    UART_tx_ifc my_tx <- mkUART_tx8nN(clk, rst, 3, clocked_by cdiv.slowClock, reset_by rstSync);
 
     // ------------------- RX ----------------------
     //receiver module for viewing mirrored data inside this testbench
     Integer clockDivisorRX = clockDivisor / valueOf(UARTRX_SAMPLE_SIZE);
     ClockDividerIfc cdivRX <- mkClockDivider(clocked_by clk, reset_by rstRX, clockDivisorRX);
     Reset rstSyncRX <- mkAsyncReset(0, rstRX, cdivRX.slowClock);
-    UART_rx_ifc my_rx <- mkUART_rx8n1(clocked_by cdivRX.slowClock, reset_by rstSyncRX, clk, rstRX);
+    UART_rx_ifc my_rx <- mkUART_rx8n(clocked_by cdivRX.slowClock, reset_by rstSyncRX, clk, rstRX);
 
 
     // ------------------- UART MIRROR ----------------------
@@ -45,23 +45,24 @@ module mkTestbenchUARTMirror();
 
     Reg#(UART_pkt) recv <- mkRegU(clocked_by clk, reset_by rst);
 
+    rule fwd;
+        dut.rx(my_tx.out_pin); //simulate input on the RX pin of the UART module 
+        my_rx.in_pin(dut.tx); //simulate output from TX pin of the UART module
+    endrule
+
     Stmt s = seq
         par
         while(True)
             action
                 let r <- my_rx.data.get();
                 recv <= r;
-            endaction
-        while(True)
-            action
-                dut.rx(my_tx.out_pin); //simulate input on the RX pin of the UART module 
-                my_rx.in_pin(dut.tx); //simulate output from TX pin of the UART module
+                $display("Received: %0b", r);
             endaction
         seq 
-            my_tx.data.put('h41); //feed data into the standalone TX module
-            my_tx.data.put('h42); 
-            my_tx.data.put('h43); 
-            delay(1000);
+            my_tx.data.put('b10111011); //feed data into the standalone TX module
+            my_tx.data.put('b10000001); 
+            my_tx.data.put('b01010101); 
+            delay(600); //wait to see results in waveform
             $finish;
         endseq
         endpar

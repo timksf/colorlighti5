@@ -6,9 +6,24 @@ FREQUENCY PORT "CLK" 25 MHZ;
 LOCATE COMP "led" SITE "U16";
 IOBUF PORT "led" IO_TYPE=LVCMOS25;
 
+# DEBUG
+LOCATE COMP "recv" SITE "G16";
+IOBUF PORT "recv" IO_TYPE=LVCMOS33;
+
 # TX pin
 LOCATE      COMP "tx"       SITE "J17";
 IOBUF       PORT "tx"       IO_TYPE=LVCMOS33;
+
+# RX pin
+LOCATE      COMP "rx"       SITE "H16";
+IOBUF       PORT "rx"       IO_TYPE=LVCMOS33;
+
+# TX baud clock
+LOCATE      COMP "CLK_baud"       SITE "H17";
+IOBUF       PORT "CLK_baud"       IO_TYPE=LVCMOS33;
+
+LOCATE      COMP "CLK_GATE_baud"       SITE "G18";
+IOBUF       PORT "CLK_GATE_baud"       IO_TYPE=LVCMOS33;
 
 # default RST_N of top module
 LOCATE COMP "RST_N" SITE "D6";  

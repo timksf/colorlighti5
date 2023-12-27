@@ -7,8 +7,8 @@ import BUtils :: *;
 
 import Defs :: *;
 
+(* always_ready *)
 interface PWMGenSingle;
-    (* always_ready *)
     method Bool pwm_out();
     //set to percentage between 0 and 100
     (*prefix=""*)
