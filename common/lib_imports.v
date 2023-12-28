@@ -5,3 +5,4 @@
 `include "/opt/tools/bsc/latest/lib/Verilog/SyncBit.v"
 `include "/opt/tools/bsc/latest/lib/Verilog/FIFO1.v"
 `include "/opt/tools/bsc/latest/lib/Verilog/SizedFIFO.v"
+`include "/opt/tools/bsc/latest/lib/Verilog/BRAM2.v"

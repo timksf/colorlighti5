@@ -32,7 +32,7 @@ module mkTestbenchUARTMirror();
 
     // ------------------- UART MIRROR ----------------------
     //Baudrate is defined inside the module itself for now for easier synthesis
-    UART_ifc dut <- mkUART(clocked_by clk, reset_by rst);
+    Top_ifc dut <- mkTop(clocked_by clk, reset_by rst);
 
     Integer ascii_0 = 48;
     Integer ascii_9 = 57;

@@ -10,8 +10,8 @@ ECPPACK=ecppack
 BSC=bsc
 
 # filenames
-TARGET_NAME=UART
-TOP=UART
+TARGET_NAME=Top
+TOP=Top
 MOD_NAME=mk$(TOP)
 TEST_NAME=TestbenchUARTMirror
 # TestbenchUARTMirror
@@ -54,7 +54,7 @@ gen_verilog: $(TOP).bsv prep_dirs
 $(TARGET).json: gen_verilog 
 	$(YOSYS) -p " \
 		read_verilog $(VERILOG)/$(MOD_NAME).v;\
-		synth_ecp5 -top mkUART -json $@;" \
+		synth_ecp5 -top $(MOD_NAME) -json $@;" \
 	$(shell find $(VERILOG) -type f -name "*.v") > $(BUILD)/yosys_build.log
 
 $(TARGET)_out.config: $(TARGET).json

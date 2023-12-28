@@ -24,7 +24,14 @@ typedef union tagged {
     void HIGH;
 } PinState deriving(Bits, Eq);
 
-typedef enum { BAUD_2400, BAUD_4800, BAUD_9600, BAUD_57600, BAUD_115200, BAUD_230400 } Baudrate deriving(Bits, Eq);
+typedef enum { 
+    BAUD_2400,
+    BAUD_4800,
+    BAUD_9600,
+    BAUD_57600,
+    BAUD_115200,
+    BAUD_230400 
+} Baudrate deriving(Bits, Eq);
 
 typedef 8 UART_WIDTH;
 typedef TAdd#(TLog#(UART_WIDTH), 1) UART_INDEX_WIDTH;
