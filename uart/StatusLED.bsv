@@ -1,8 +1,28 @@
 package StatusLED;
 
-import Clocks :: *;
-
 import Defs :: *;
+import BaudGen :: *;
+
+module mkPulseGenerator#(UInt#(32) divisor)(BaudGen_ifc);
+
+    Reg#(UInt#(32)) rCounter <- mkReg(0);
+    PulseWire pwTick <- mkPulseWire;
+    UInt#(32) top = divisor;
+
+    rule count;
+        if(rCounter + 1 >= top) begin
+            pwTick.send();
+            rCounter <= 0;
+        end else begin
+            rCounter <= rCounter + 1;
+        end
+    endrule
+
+    method tick = pwTick;
+    method clear = action rCounter <= 0; endaction;
+
+
+endmodule
 
 interface StatusLEDIfc;
     (* always_ready *)
@@ -10,23 +30,19 @@ interface StatusLEDIfc;
 endinterface
 
 (* synthesize *)
-module mkStatusLED#(Clock sClk)(StatusLEDIfc);
+module mkStatusLED#(parameter UInt#(32) divisor)(StatusLEDIfc);
+    
+    Reg#(PinState) rLED <- mkRegU;
+    BaudGen_ifc pulseGen <- mkPulseGenerator(divisor);
 
-    SyncBitIfc#(PinState) out_sync <- mkSyncBitFromCC(sClk);
-    Reg#(PinState) led <- mkReg(tagged LOW);
-
-    rule toggle;
-        if(led matches tagged LOW)
-            led <= tagged HIGH;
+    rule toggle if(pulseGen.tick);
+        if(rLED matches tagged LOW)
+        rLED <= tagged HIGH;
         else
-            led <= tagged LOW;
+        rLED <= tagged LOW;
     endrule
 
-    rule sync;
-        out_sync.send(led);
-    endrule
-
-    method led_out = out_sync.read();
+    method led_out = rLED;
 
 endmodule
 

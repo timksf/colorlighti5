@@ -54,7 +54,7 @@ gen_verilog: $(TOP).bsv prep_dirs
 $(TARGET).json: gen_verilog 
 	$(YOSYS) -p " \
 		read_verilog $(VERILOG)/$(MOD_NAME).v;\
-		synth_ecp5 -top mkUART -json $@; " \
+		synth_ecp5 -top mkUART -json $@;" \
 	$(shell find $(VERILOG) -type f -name "*.v") > $(BUILD)/yosys_build.log
 
 $(TARGET)_out.config: $(TARGET).json

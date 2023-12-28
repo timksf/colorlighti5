@@ -2,73 +2,89 @@ package UART_TX;
 
 import Clocks :: *;
 import GetPut :: *;
+import FIFO :: *;
+import FIFOF :: *;
 
 import Defs :: *;
-
+import BaudGen :: *;
 import SyncBitExtensions :: *;
 
-interface UART_tx_ifc;
-    interface Put#(UART_pkt) data;
-
+interface UART_TX_ifc#(numeric type w);
+    //hw interface
     method PinState out_pin();
+
+    //user interface
+    method Action set_divisor(UInt#(16) d);
+    interface Put#(Bit#(w)) data;
 endinterface
 
 /*
-    UART TX module with 8 data bits, no parity bit and a variable number of stop bits.
+    UART TX module with 8 data bits, no parity bit and a variable number of rStop bits.
 */
-(* synthesize *)
-module mkUART_tx8nN#(Clock sClk, Reset sRst, parameter UInt#(32) stop_bits)(UART_tx_ifc);
+module mkUART_TX#(parameter UInt#(4) stop_bits, parameter UInt#(16) divisor)(UART_TX_ifc#(w));
     
-    SyncFIFOIfc#(UART_pkt) tx_fifo <- mkSyncFIFOToCC(8, sClk, sRst);
-    Reg#(PinState) out <- mkSyncBitInitWrapperFromCC(tagged HIGH, sClk); //output pin HIGH in idle state
+    FIFOF#(Bit#(w)) fTX <- mkSizedFIFOF(1);
+    Reg#(PinState) rOutputPin <- mkReg(tagged HIGH);
+    Reg#(UInt#(UART_INDEX_WIDTH)) rBitIndex <- mkReg(0);
+    Reg#(Bool) rIdle <- mkReg(True);
+    Reg#(Bool) rStop <- mkReg(False);
+    Reg#(UInt#(4)) rStopCounter <- mkReg(0);
 
-    Reg#(UInt#(UART_INDEX_WIDTH)) idx <- mkReg(0);
+    Reg#(UInt#(16)) rDivisor <- mkReg(divisor);
+    Reg#(UInt#(16)) rCLKCount <- mkReg(0);
 
-    Reg#(Bool) idle <- mkReg(True);
-    Reg#(Bool) stop <- mkReg(False); //start with output pin pulled HIGH
+    //no oversampling -> oversampling rate of 1
+    BaudGen_ifc baudGen <- mkBaudGenerator(divisor, 1);
 
-    Reg#(UInt#(32)) rStopCounter <- mkReg(0);
-
-    rule stopr (stop);
-        //send stop bits
-        out <= tagged HIGH;
+    rule stopr (rStop && baudGen.tick);
+        //send rStop bits
+        rOutputPin <= tagged HIGH;
         if(rStopCounter == (stop_bits - 1)) begin
-            stop <= False;
-            idle <= True;
+            rStop <= False;
+            rIdle <= True;
             rStopCounter <= 0;
         end else
             rStopCounter <= rStopCounter + 1;
     endrule
 
-    rule send_bit (!stop && tx_fifo.notEmpty);
+    rule send_bit (!rStop && fTX.notEmpty && baudGen.tick);
         //TODO Maybe add capability to switch between LSB and MSB first
-        // let cbit = pkt[fromInteger(valueof(UART_WIDTH) - 1) - idx]; //MSB first
-        let pkt = tx_fifo.first;
-        let cbit = pkt[idx]; //LSB first
-        if(idx == 0 && idle) begin
+        // let cbit = pkt[fromInteger(valueof(UART_WIDTH) - 1) - rBitIndex]; //MSB first
+        let pkt = fTX.first;
+        let cbit = pkt[rBitIndex]; //LSB first
+        if(rBitIndex == 0 && rIdle) begin
             //send start bit
-            out <= tagged LOW;
-            idle <= False;
-        end else if(idx == fromInteger(valueof(UART_WIDTH) - 1))begin
-            tx_fifo.deq;
+            rOutputPin <= tagged LOW;
+            rIdle <= False;
+        end else if(rBitIndex == fromInteger(valueof(UART_WIDTH) - 1))begin
+            fTX.deq;
             //send last bit from current entry in tx_fifo
-            out <= unpack(cbit);
-            idx <= 0;
-            stop <= True;
+            rOutputPin <= unpack(cbit);
+            rBitIndex <= 0;
+            rStop <= True;
         end else begin
-            out <= unpack(cbit);
-            idx <= idx + 1;
+            rOutputPin <= unpack(cbit);
+            rBitIndex <= rBitIndex + 1;
         end
     endrule
 
-    rule rwait (idle && !stop && !tx_fifo.notEmpty);
-        out <= tagged HIGH;
+    rule rwait (rIdle && !rStop && !fTX.notEmpty);
+        rOutputPin <= tagged HIGH;
     endrule
 
-    method out_pin  = out._read;
+    method out_pin = rOutputPin;
 
-    interface data  = toPut(tx_fifo);
+    interface data = toPut(fTX);
 
+endmodule
+
+(* synthesize *)
+module mkUART_TX8#(parameter UInt#(4) stop_bits, parameter UInt#(16) divisor)(UART_TX_ifc#(8));
+
+    UART_TX_ifc#(8) ifc();
+    mkUART_TX#(stop_bits, divisor) __internal(ifc);
+
+    return ifc;
 endmodule
 
 endpackage

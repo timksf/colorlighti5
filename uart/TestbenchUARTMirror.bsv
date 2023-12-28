@@ -24,18 +24,10 @@ module mkTestbenchUARTMirror();
 
     // ------------------- TX ----------------------
     //use TX module to send data to mirror module
-    //generate clock and synchronized reset for tx module
-    ClockDividerIfc cdiv <- mkClockDivider(clocked_by clk, reset_by rst, clockDivisor);
-    Reset rstSync <- mkAsyncReset(0, rst, cdiv.slowClock);
-
-    UART_tx_ifc my_tx <- mkUART_tx8nN(clk, rst, 3, clocked_by cdiv.slowClock, reset_by rstSync);
+    UART_TX_ifc#(8) my_tx <- mkUART_TX(1, fromInteger(clockDivisor), clocked_by clk, reset_by rst);
 
     // ------------------- RX ----------------------
-    //receiver module for viewing mirrored data inside this testbench
-    Integer clockDivisorRX = clockDivisor / valueOf(UARTRX_SAMPLE_SIZE);
-    ClockDividerIfc cdivRX <- mkClockDivider(clocked_by clk, reset_by rstRX, clockDivisorRX);
-    Reset rstSyncRX <- mkAsyncReset(0, rstRX, cdivRX.slowClock);
-    UART_rx_ifc my_rx <- mkUART_rx8n(clocked_by cdivRX.slowClock, reset_by rstSyncRX, clk, rstRX);
+    UART_RX_ifc#(8) my_rx <- mkUART_RX(fromInteger(clockDivisor), clocked_by clk, reset_by rst);
 
 
     // ------------------- UART MIRROR ----------------------
@@ -45,7 +37,7 @@ module mkTestbenchUARTMirror();
     Integer ascii_0 = 48;
     Integer ascii_9 = 57;
 
-    Reg#(UART_pkt) recv <- mkRegU(clocked_by clk, reset_by rst);
+    Reg#(Bit#(8)) recv <- mkRegU(clocked_by clk, reset_by rst);
 
     rule fwd;
         dut.rx(my_tx.out_pin); //simulate input on the RX pin of the UART module 
@@ -57,20 +49,19 @@ module mkTestbenchUARTMirror();
     String t = fold(f, splashText);
 
     Stmt s = seq
-        $display(t);
         par
-        while(True)
-            action
-                let r <- my_rx.data.get();
-                recv <= r;
-                $display("Received: %0b", r);
-            endaction
+        // while(True)
+        //     action
+        //         let r <- my_rx.data.get();
+        //         recv <= r;
+        //         $display("Received: %0b", r);
+        //     endaction
         seq 
             my_tx.data.put('b10111011); //feed data into the standalone TX module
             my_tx.data.put('b10000001); 
             my_tx.data.put('b01010101);
             my_tx.data.put('hAA);
-            my_tx.data.put(fromInteger(charToInteger("c")));
+            // my_tx.data.put(fromInteger(charToInteger("c")));
             delay(600); //wait to see results in waveform
             $finish;
         endseq

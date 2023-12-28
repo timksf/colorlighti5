@@ -2,56 +2,64 @@ package UART_RX;
 
 import Clocks :: *;
 import GetPut :: *;
+import FIFO :: *;
+import FIFOF :: *;
+import Assert :: *;
 
 import Defs :: *;
-
+import BaudGen :: *;
 import SyncBitExtensions :: *;
 
-interface UART_rx_ifc;
+interface UART_RX_ifc#(numeric type w);
+    //hw interface
     method Action in_pin(PinState s);
-    interface Get#(UART_pkt) data;
-
-    method PinState input_bit();
+    method PinState overflow();
+    
+    //user interface
+    method Action set_divisor(UInt#(16) d);
+    interface Get#(Bit#(w)) data;
 endinterface
 
 typedef enum { 
     UART_RX_Idle = 0,
-    UART_RX_Data = 1,
-    UART_RX_Stop = 2
+    UART_RX_Data = 1
 } UartRxState deriving(Eq, Bits);
 
 /*
     UART RX module with 8 data bits, no parity bit and variable # of stop bits.
 */
-(* synthesize *)
-module mkUART_rx8n#(Clock dClk, Reset sRst)(UART_rx_ifc);
+module mkUART_RX#(parameter UInt#(16) divisor, Integer buffer_size)(UART_RX_ifc#(w))
+    provisos(
+        Add#(1, a__, w)
+    );
 
-    Integer sampleStart = valueof(UARTRX_SAMPLE_SIZE)*6/4 -1;
-    Integer sampleMid = valueof(TDiv#(UARTRX_SAMPLE_SIZE, 2)) - 1;
-    Integer sampleTop = valueof(TSub#(UARTRX_SAMPLE_SIZE, 1));
-    Integer uartEndIdx = valueof(TSub#(UART_WIDTH, 1));
+    staticAssert(buffer_size <= 8, "Buffer size has to be <= 8");
 
-    messageM("UART RX sampleMid: " + integerToString(sampleMid));
-    messageM("UART RX sampleTop: " + integerToString(sampleTop));
+    Integer uartWidth = valueof(w);
+    Integer sampleSize = valueof(UARTRX_SAMPLE_SIZE);
+    //sampleStart is used to go from the start bit to the center of first data bit
+    Integer sampleStart = (valueof(UARTRX_SAMPLE_SIZE))*6/4 - 1;
 
-    SyncFIFOIfc#(UART_pkt) rx_fifo <- mkSyncFIFOFromCC(8, dClk);
-    Reg#(PinState) in <- mkSyncBitInitWrapperToCC(tagged HIGH, dClk, sRst);
+    FIFOF#(Bit#(w)) fRX <- mkSizedFIFOF(buffer_size);
+    Reg#(PinState) rInputPin <- mkRegU;
 
+    Reg#(UInt#(16)) rDivisor <- mkReg(0);
     Reg#(UartRxState) rState <- mkReg(UART_RX_Idle);
-    Reg#(UInt#(TAdd#(TLog#(UARTRX_SAMPLE_SIZE), 1))) rSampleCount <- mkReg(0);
-
-    Reg#(UInt#(UART_INDEX_WIDTH)) idx <- mkReg('b0);
-
-    Reg#(Bit#(2)) rRXDebounce <- mkReg(2'b11); //start with 2'b11 as this is the IDLE state
-    Reg#(Bit#(2)) rRXDebounceCount <- mkReg(2'b11); //start with 2'b11 as this is the IDLE state
+    Reg#(UInt#(16)) rSampleCount <- mkReg(0);
+    Reg#(UInt#(TAdd#(TLog#(UART_WIDTH), 1))) rBitIndex <- mkReg(0);
+    Reg#(Bit#(w)) rCurrentPkt <- mkReg('b0);
+    //start with 2'b11 as this is the IDLE state
+    Reg#(Bit#(2)) rRXDebounce <- mkReg(2'b11);
+    Reg#(Bit#(2)) rRXDebounceCount <- mkReg(2'b11);
     Reg#(Bit#(1)) rInputBit <- mkReg(1'b1);
-    Reg#(UART_pkt) recv_pkt <- mkReg('b0);
-
-    Reg#(PinState) rInputBitDEBUG <- mkSyncBitInitWrapperFromCC(tagged HIGH, dClk);
+    PulseWire pwOverflow <- mkPulseWire;
+    
+    BaudGen_ifc baudGen <- mkBaudGenerator(divisor, fromInteger(sampleSize));
+    Bool sampleTick = baudGen.tick && (rSampleCount == 0);
 
     rule rdebounce;
         //prevent short spikes from affecting the input
-        rRXDebounce <= {rRXDebounce[0], pack(in)};
+        rRXDebounce <= {rRXDebounce[0], pack(rInputPin)};
 
         //after two 1's this will switch to a 1, after two 0's to a 0
         if(rRXDebounce[1] == 1'b1 && rRXDebounceCount != 2'b11) begin
@@ -69,58 +77,48 @@ module mkUART_rx8n#(Clock dClk, Reset sRst)(UART_rx_ifc);
 
     rule fsm;
         case(rState)
-            UART_RX_Idle: begin
-                let sample_count = rSampleCount;
-                if(rInputBit == 1'b0 || rSampleCount != 0) begin
-                    sample_count = sample_count + 1;
-                end
-                if(rSampleCount == fromInteger(sampleStart)) begin 
+            UART_RX_Idle: begin //wait for start bit
+                if(rInputBit == 1'b0) begin
                     rState <= UART_RX_Data;
-                    sample_count = fromInteger(sampleTop);
-                    idx <= 0;
+                    rSampleCount <= fromInteger(sampleStart);
                 end
-                rSampleCount <= sample_count;
             end
-            UART_RX_Data: begin
-                let sample_count = rSampleCount;
-                if(rSampleCount < fromInteger(sampleTop))
-                    sample_count = sample_count + 1;
-                if(rSampleCount == fromInteger(sampleTop) && idx <= fromInteger(uartEndIdx)) begin
-                    //now that we are in the middle of the start bit, sample
-                    sample_count = 0;
-                    idx <= idx + 1;
-                    recv_pkt <= {rInputBit, recv_pkt[fromInteger(uartEndIdx):1]};
-                end
-                if(idx > fromInteger(uartEndIdx)) begin
-                    rState <= UART_RX_Stop;
-                    rx_fifo.enq(unpack(recv_pkt));
-                end
-                rSampleCount <= sample_count;
-                end
-            UART_RX_Stop: begin
-                let sample_count = rSampleCount;
-                if(rSampleCount < fromInteger(sampleTop))
-                    sample_count = sample_count + 1;
-                if(rSampleCount >= fromInteger(sampleTop)) begin
-                    sample_count = 0;
-                    rState <= UART_RX_Idle;
-                    recv_pkt <= 0;
-                end
-                rSampleCount <= sample_count;
+            UART_RX_Data: begin //sample data bits
+                if(sampleTick) begin
+                    if(rBitIndex < fromInteger(uartWidth)) begin
+                        rBitIndex <= rBitIndex + 1;
+                        rCurrentPkt <= {rInputBit, rCurrentPkt[uartWidth-1:1]};
+                        rSampleCount <= fromInteger(sampleSize) - 1;
+                    end
+                    if(rBitIndex >= fromInteger(uartWidth)) begin
+                        rState <= UART_RX_Idle;
+                        fRX.enq(rCurrentPkt);
+                        rSampleCount <= 0;
+                        rBitIndex <= 0;
+                    end
+                    if(rBitIndex >= fromInteger(uartWidth) && !fRX.notFull) begin
+                        pwOverflow.send;
+                    end
+                end else if(baudGen.tick)
+                    rSampleCount <= rSampleCount - 1;
             end
             default: rState <= UART_RX_Idle;
         endcase
     endrule
 
-    // rule fwddebug;
-    //     rInputBitDEBUG <= (pack(rState)[0] == 1'b1) ? HIGH : LOW;
-    // endrule
+    method in_pin = rInputPin._write;
+    method overflow = unpack(pack(pwOverflow));
+    interface data = toGet(fRX);
 
-    method in_pin(s) = in._write(s);
-    method input_bit = rInputBitDEBUG;
+endmodule
 
-    interface data      = toGet(rx_fifo);
+(* synthesize *)
+module mkUART_RX8#(parameter UInt#(16) divisor)(UART_RX_ifc#(8));
 
+    UART_RX_ifc#(8) ifc();
+    mkUART_RX#(divisor, 8) __internal(ifc);
+
+    return ifc;
 endmodule
 
 

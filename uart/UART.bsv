@@ -41,7 +41,7 @@ function Integer divisorFromBR(Baudrate br);
     return clockDivisor;
 endfunction
 
-module mkSendString#(String text, Put#(UART_pkt) d)(Stmt);
+module mkSendString#(String text, Put#(Bit#(w)) d)(Stmt);
 
     Reg#(UInt#(32)) rIndex <- mkRegU;
     let chars = stringToCharList(text);
@@ -49,8 +49,8 @@ module mkSendString#(String text, Put#(UART_pkt) d)(Stmt);
     Stmt s = seq
         rIndex <= 0;
         while(rIndex < fromInteger(List::length(chars))) action
-            Bit#(8) x = fromInteger(charToInteger(chars[rIndex]));
-            d.put(unpack(x));
+            Bit#(w) x = fromInteger(charToInteger(chars[rIndex]));
+            d.put(x);
             rIndex <= rIndex + 1;
         endaction
     endseq;
@@ -68,41 +68,26 @@ module mkUART(UART_ifc);
     Integer ascii_9 = 57;
 
     //uart clock parameters
-    Baudrate br = BAUD_115200;
+    Baudrate br = BAUD_2400;
     Integer clockDivisor = divisorFromBR(br);
-
-    //current clock and reset for FIFO synchronization
-    Clock currClk <- exposeCurrentClock();
-    Reset currRst <- exposeCurrentReset();
-
-    // ------------------- TX ----------------------
-
-    //generate clock and synchronized reset for tx module
-    ClockDividerIfc cdiv <- mkClockDivider(clockDivisor);
-    Reset rstSync <- mkAsyncResetFromCR(0, cdiv.slowClock);
-    UART_tx_ifc my_tx <- mkUART_tx8nN(currClk, currRst, 3, clocked_by cdiv.slowClock, reset_by rstSync);
 
     Reg#(UInt#(UART_WIDTH)) send_byte <- mkReg(fromInteger(ascii_0));
 
+    // ------------------- TX ----------------------
+    UART_TX_ifc#(8) my_tx <- mkUART_TX8(3, fromInteger(clockDivisor));
     // ------------------- RX ----------------------
+    UART_RX_ifc#(8) my_rx <- mkUART_RX8(fromInteger(clockDivisor));
 
-    //rx module has a higher clock rate than TX module because it needs to sample the input
-    Integer clockDivisorRX = clockDivisor / valueOf(UARTRX_SAMPLE_SIZE);
-    messageM("Clock divisor TX: " + integerToString(clockDivisor));
-    messageM("Clock divisor RX: " + integerToString(clockDivisorRX));
-    ClockDividerIfc cdivRX <- mkClockDivider(clockDivisorRX);
-    Reset rstSyncRX <- mkAsyncResetFromCR(0, cdivRX.slowClock);
-    UART_rx_ifc my_rx <- mkUART_rx8n(currClk, currRst, clocked_by cdivRX.slowClock, reset_by rstSyncRX);
+    messageM("Clock divisor: " + integerToString(clockDivisor));
+    messageM("BaudGen top: " + integerToString(clockDivisor / valueof(UARTRX_SAMPLE_SIZE)));
 
-    //Clock for status LED
-    ClockDividerIfc cdivLed <- mkClockDivider(fromInteger(valueof(MCLK) / 2));
-    Reset rstSyncLed <- mkAsyncResetFromCR(0, cdivLed.slowClock);
-    StatusLEDIfc s_led <- mkStatusLED(clocked_by cdivLed.slowClock, reset_by rstSyncLed, currClk);
+    // ------------------- Status LED -------------------
+    StatusLEDIfc s_led <- mkStatusLED(fromInteger(valueof(MCLK) / 4));
 
     Integer heartbeat_top = valueof(MCLK) * 2;
     Reg#(Bit#(32)) rUARTHeartBeat <- mkReg(0);
 
-    Reg#(Maybe#(UART_pkt)) rRecv <- mkReg(tagged Invalid);
+    Reg#(Maybe#(Bit#(UART_WIDTH))) rRecv <- mkReg(tagged Invalid);
 
     let splashText <- mkReadFileStringList("splashscreen.txt");
     function String f(String x, String y) = x+"\n"+y;
@@ -119,22 +104,19 @@ module mkUART(UART_ifc);
     rule process (rRecv matches tagged Valid .pkt);
         if(pack(pkt) == fromInteger(charToInteger("c"))) begin
             splashScreenFSM.start();
+        end else begin
+            my_tx.data.put(pkt); //mirror
         end
         rRecv <= tagged Invalid;
     endrule
 
-    // (* descending_urgency = "mirror_tx, rheartbeat" *)
-    // rule mirror_tx if (rRecv matches tagged Valid .pkt);
-    //     my_tx.data.put(pkt);
-    //     rRecv <= tagged Invalid;
-    // endrule
+    let currClk <- exposeCurrentClock;
 
     method rx(s)    = my_rx.in_pin(s);
     method tx       = my_tx.out_pin;
     method led      = s_led.led_out;
-    method PinState recv() = my_rx.input_bit;
     
-    interface baud = cdiv.slowClock;
+    interface baud = currClk;
 
 endmodule
 

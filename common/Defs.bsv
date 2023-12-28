@@ -27,7 +27,6 @@ typedef union tagged {
 typedef enum { BAUD_2400, BAUD_4800, BAUD_9600, BAUD_57600, BAUD_115200, BAUD_230400 } Baudrate deriving(Bits, Eq);
 
 typedef 8 UART_WIDTH;
-typedef Bit#(UART_WIDTH) UART_pkt;
 typedef TAdd#(TLog#(UART_WIDTH), 1) UART_INDEX_WIDTH;
 `ifndef BSIM
 typedef 16 UARTRX_SAMPLE_SIZE;
