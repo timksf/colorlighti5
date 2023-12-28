@@ -1,0 +1,15 @@
+LOCATE COMP "CLK" SITE "P3";
+IOBUF PORT "CLK" IO_TYPE=LVCMOS33;
+FREQUENCY PORT "CLK" 25 MHZ;
+
+# default RST_N of top module
+LOCATE COMP "RST_N" SITE "D6";  
+IOBUF  PORT "RST_N" PULLMODE=UP IO_TYPE=LVCMOS33 DRIVE=4;
+
+# pll generated clock signal
+LOCATE COMP "CLK_pll_out" SITE "G16";
+IOBUF PORT "CLK_pll_out" IO_TYPE=LVCMOS33;
+
+# clock gate pin
+LOCATE      COMP "CLK_GATE_pll_out"       SITE "J17";
+IOBUF       PORT "CLK_GATE_pll_out"       IO_TYPE=LVCMOS33;
